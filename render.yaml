@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: history-lens-mcp
+    runtime: node
+    buildCommand: npm ci && npm run build
+    startCommand: node server.js
+    healthCheckPath: /
