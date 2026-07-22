@@ -24,7 +24,12 @@ const widgetHtml = html
   // literal. A replacement string would interpret those sequences and can
   // inject the original script tag into the bundle, truncating the widget.
   .replace('<link rel="stylesheet" href="styles.css" />', () => `<style>${css}</style>`)
-  .replace('<script type="module" src="js/app.js"></script>', () => `<script>${javascript}</script>`)
+  // The source page loads js/app.js as a module, which is deferred until the
+  // DOM is parsed. An inline replacement in <head> runs immediately, before
+  // #app-root exists, so the app silently never initializes. Inline the
+  // bundle at the end of <body> instead so the DOM is ready when it runs.
+  .replace('<script type="module" src="js/app.js"></script>', "")
+  .replace("</body>", () => `<script>${javascript}</script></body>`)
   .replace("ChatGPT·Claude·Gemini 등", "패널에서 ChatGPT로 바로 전송")
   .replace("답변을 여기로 가져오기", "ChatGPT 답변 확인하기")
   .replace("최종 요청을 다시 내 AI로", "선택한 쟁점을 다시 ChatGPT로")
