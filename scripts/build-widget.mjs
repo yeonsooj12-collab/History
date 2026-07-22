@@ -20,8 +20,11 @@ const [html, css, bundle] = await Promise.all([
 
 const javascript = bundle.outputFiles[0].text;
 const widgetHtml = html
-  .replace('<link rel="stylesheet" href="styles.css" />', `<style>${css}</style>`)
-  .replace('<script type="module" src="js/app.js"></script>', `<script>${javascript}</script>`)
+  // Function replacers keep `$&`, `$1`, and similar JavaScript source text
+  // literal. A replacement string would interpret those sequences and can
+  // inject the original script tag into the bundle, truncating the widget.
+  .replace('<link rel="stylesheet" href="styles.css" />', () => `<style>${css}</style>`)
+  .replace('<script type="module" src="js/app.js"></script>', () => `<script>${javascript}</script>`)
   .replace("ChatGPT·Claude·Gemini 등", "패널에서 ChatGPT로 바로 전송")
   .replace("답변을 여기로 가져오기", "ChatGPT 답변 확인하기")
   .replace("최종 요청을 다시 내 AI로", "선택한 쟁점을 다시 ChatGPT로")
