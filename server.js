@@ -250,7 +250,12 @@ const httpServer = createServer(async (req, res) => {
 
   if (req.method === "GET" && url.pathname === "/") {
     res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
-    return res.end(JSON.stringify({ name: "history-lens", status: "ok", mcp: mcpPath }));
+    return res.end(JSON.stringify({ name: "history-lens", version: "0.5.1", widgetUri, status: "ok", mcp: mcpPath }));
+  }
+
+  if (req.method === "GET" && url.pathname === "/widget-debug") {
+    res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    return res.end(widgetHtml);
   }
 
   if (allowedMethods.has(req.method ?? "") && url.pathname.startsWith(mcpPath)) {
