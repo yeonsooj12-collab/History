@@ -30,6 +30,9 @@ import {
   getPromptMode,
   parsePastedAiResponse,
 } from "./prompt.js";
+import { installChatGptAppBridge } from "./chatgpt-app.js";
+
+installChatGptAppBridge();
 
 export {
   buildAiInput,
@@ -1627,6 +1630,14 @@ export function renderSelectionSummary(selection) {
 
 export async function copyTextToClipboard(text) {
   if (!text) return { ok: false, message: "복사할 내용이 없습니다." };
+  if (typeof window?.historyLensSendToChat === "function") {
+    try {
+      await window.historyLensSendToChat(text);
+      return { ok: true, message: "요청을 ChatGPT 대화로 보냈습니다." };
+    } catch {
+      return { ok: false, message: "ChatGPT로 보내지 못했습니다. 아래 내용을 직접 복사해주세요." };
+    }
+  }
   try {
     if (!navigator?.clipboard?.writeText) throw new Error("clipboard_unavailable");
     await navigator.clipboard.writeText(text);
