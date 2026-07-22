@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import {
   registerAppResource,
@@ -16,12 +17,59 @@ const appDomain = configuredDomain
   ? new URL(configuredDomain).origin
   : undefined;
 
+const pendingRequests = new Map();
+const requestTtlMs = 30 * 60 * 1000;
+
+const stringList = z.array(z.string());
+const historicalCaseSchema = z.object({
+  title: z.string(),
+  period: z.string(),
+  region: z.string(),
+  context: z.string(),
+  insight: z.string(),
+  verificationKeywords: z.array(z.string()).min(1).max(5),
+});
+const axisSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  coreInsight: z.string(),
+  centralContradiction: z.string(),
+  usedElements: stringList,
+  deferredElements: stringList,
+  bridge: z.string(),
+  assumptions: z.array(z.string()).max(2),
+  whyThisAxisMatters: z.string(),
+  specificQuestion: z.string(),
+  historicalCases: z.array(historicalCaseSchema).min(1).max(2),
+  similarities: z.array(z.string()).min(1).max(2),
+  differences: z.array(z.string()).min(1).max(2),
+  humanBehaviorPattern: z.string(),
+  futureInsight: z.string(),
+  verificationKeywords: z.array(z.string()).min(3).max(5),
+});
+const axisFinderSchema = z.object({
+  version: z.string(),
+  status: z.enum(["success", "incomplete", "fallback", "error"]),
+  interpretationMode: z.literal("axis-finder"),
+  overview: z.string(),
+  axes: z.array(axisSchema).length(3),
+  unresolvedElements: stringList,
+  editorNote: z.string(),
+});
+
+function pruneExpiredRequests() {
+  const cutoff = Date.now() - requestTtlMs;
+  for (const [requestId, value] of pendingRequests) {
+    if (value.createdAt < cutoff) pendingRequests.delete(requestId);
+  }
+}
+
 function createHistoryLensServer() {
   const server = new McpServer(
-    { name: "history-lens", version: "0.3.0" },
+    { name: "history-lens", version: "0.4.0" },
     {
       instructions:
-        "세계사 조건 렌즈는 사용자의 사회 조건을 서로 다른 세계사 비교 쟁점 3개로 나눕니다. 사용자가 렌즈, 비교 쟁점, 역사 패널을 요청하면 open_history_lens를 호출해 패널을 여세요.",
+        "세계사 조건 렌즈는 사용자의 사회 조건을 서로 다른 세계사 비교 쟁점 3개로 나눕니다. 사용자가 렌즈, 비교 쟁점, 역사 패널을 요청하면 open_history_lens를 호출해 패널을 여세요. 패널이 requestId와 함께 1차 분석을 요청하면 반드시 정확히 3개의 축을 만든 뒤 show_history_lens_axes를 호출해 결과를 패널로 돌려보내세요.",
     },
   );
 
@@ -90,6 +138,93 @@ function createHistoryLensServer() {
         ...(startingPrompt ? { startingPrompt } : {}),
       },
     }),
+  );
+
+  registerAppTool(
+    server,
+    "prepare_history_lens_request",
+    {
+      title: "세계사 렌즈 1차 요청 준비",
+      description: "패널 내부에서 1차 분석 요청의 상태를 잠시 보관합니다.",
+      inputSchema: {
+        resultSnapshot: z.record(z.any()),
+      },
+      outputSchema: {
+        status: z.string(),
+        requestId: z.string(),
+      },
+      _meta: {
+        ui: { visibility: ["app"] },
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ resultSnapshot }) => {
+      pruneExpiredRequests();
+      const requestId = randomUUID();
+      pendingRequests.set(requestId, {
+        createdAt: Date.now(),
+        resultSnapshot,
+      });
+      return {
+        content: [{ type: "text", text: "1차 세계사 분석 요청을 준비했습니다." }],
+        structuredContent: { status: "prepared", requestId },
+      };
+    },
+  );
+
+  registerAppTool(
+    server,
+    "show_history_lens_axes",
+    {
+      title: "세계사 비교 쟁점 3개 표시",
+      description:
+        "세계사 조건 렌즈 패널에서 시작된 1차 요청을 분석한 뒤 호출합니다. requestId를 그대로 전달하고, 서로 다른 역사 학습 쟁점 정확히 3개를 analysis에 담아 패널로 돌려보냅니다.",
+      inputSchema: {
+        requestId: z.string().uuid(),
+        analysis: axisFinderSchema,
+      },
+      outputSchema: {
+        status: z.string(),
+        requestId: z.string(),
+        resultSnapshot: z.record(z.any()),
+        analysis: axisFinderSchema,
+      },
+      _meta: {
+        ui: { resourceUri: widgetUri },
+        "openai/outputTemplate": widgetUri,
+        "openai/toolInvocation/invoking": "세계사 비교 쟁점 3개를 정리하는 중",
+        "openai/toolInvocation/invoked": "세계사 비교 쟁점 3개를 패널에 표시했습니다",
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ requestId, analysis }) => {
+      pruneExpiredRequests();
+      const pending = pendingRequests.get(requestId);
+      if (!pending) {
+        return {
+          isError: true,
+          content: [{ type: "text", text: "요청 상태가 만료되었습니다. 패널에서 1차 요청을 다시 보내주세요." }],
+        };
+      }
+      pendingRequests.delete(requestId);
+      return {
+        content: [{ type: "text", text: "분석한 세계사 비교 쟁점 3개를 패널에 표시했습니다. 사용자가 한 축을 선택하면 2차 학습 요청을 이어가세요." }],
+        structuredContent: {
+          status: "axes-ready",
+          requestId,
+          resultSnapshot: pending.resultSnapshot,
+          analysis,
+        },
+      };
+    },
   );
 
   return server;

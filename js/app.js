@@ -1227,14 +1227,21 @@ export function renderManualChatGptPanel(result) {
     panel.append(createEl("p", "stale-ai-notice", "입력 내용이 변경되었습니다. 다시 요청하면 최신 내용이 반영됩니다."));
   }
 
+  const embeddedInChatGpt = typeof window?.historyLensSendFirstStage === "function";
   const nextAction = createEl("section", "manual-next-action");
   nextAction.append(
     createEl("span", "ai-status-badge ai-status-badge--brief", "다음 단계"),
-    createEl("h3", "", "2. 내 AI에 붙여넣기"),
-    createEl("p", "manual-next-action-text", "복사해서 ChatGPT, Claude, Gemini 같은 AI 채팅에 붙여넣으세요. 답변은 다시 여기로 가져옵니다."),
+    createEl("h3", "", embeddedInChatGpt ? "2. ChatGPT에서 3개 쟁점 찾기" : "2. 내 AI에 붙여넣기"),
+    createEl(
+      "p",
+      "manual-next-action-text",
+      embeddedInChatGpt
+        ? "선택한 조건을 ChatGPT가 분석하면 서로 다른 세계사 쟁점 3개가 새 패널에 자동으로 표시됩니다."
+        : "복사해서 ChatGPT, Claude, Gemini 같은 AI 채팅에 붙여넣으세요. 답변은 다시 여기로 가져옵니다.",
+    ),
   );
   const copyActions = createEl("div", "manual-copy-actions");
-  const fullCopy = createEl("button", "primary-button", "1차 요청 복사하기");
+  const fullCopy = createEl("button", "primary-button", embeddedInChatGpt ? "1차 분석 요청 보내기" : "1차 요청 복사하기");
   fullCopy.type = "button";
   fullCopy.dataset.action = "copy-full-prompt";
   copyActions.append(fullCopy);
@@ -1248,6 +1255,8 @@ export function renderManualChatGptPanel(result) {
   fallback.hidden = true;
   fallback.dataset.role = "manual-copy-fallback";
   panel.append(fallback);
+
+  if (embeddedInChatGpt) return panel;
 
   const paste = createEl("section", "manual-response-panel");
   paste.append(createEl("h3", "", "3. 답변을 여기로 가져오기"));
@@ -1323,10 +1332,17 @@ function renderAxisDetailPanel(result, response) {
   if (!selectedAxis) return null;
 
   const panel = createEl("section", "axis-detail-panel");
+  const embeddedInChatGpt = typeof window?.historyLensSendToChat === "function";
   panel.append(
     createEl("span", "ai-status-badge ai-status-badge--loading", "4단계"),
     createEl("h3", "", "4. 더 깊게 탐색하기"),
-    createEl("p", "help-text", "복사한 요청문을 ChatGPT, Claude, Gemini 같은 AI 채팅에 붙여 넣으면 바로 읽을 수 있는 세계사 해설을 받을 수 있습니다. 2차 답변은 이 앱에 다시 붙여 넣지 않아도 됩니다."),
+    createEl(
+      "p",
+      "help-text",
+      embeddedInChatGpt
+        ? "선택한 쟁점의 2차 학습 요청을 ChatGPT 대화로 보내면 바로 읽을 수 있는 세계사 해설이 이어집니다."
+        : "복사한 요청문을 ChatGPT, Claude, Gemini 같은 AI 채팅에 붙여 넣으면 바로 읽을 수 있는 세계사 해설을 받을 수 있습니다. 2차 답변은 이 앱에 다시 붙여 넣지 않아도 됩니다.",
+    ),
   );
 
   const summary = createEl("div", "axis-detail-summary");
@@ -1346,7 +1362,7 @@ function renderAxisDetailPanel(result, response) {
   if (state.axisDetail.copyStatus) panel.append(createEl("p", "message message--info", state.axisDetail.copyStatus));
 
   const actions = createEl("div", "manual-copy-actions");
-  const copyAgain = createEl("button", "primary-button", "2차 학습 프롬프트 다시 복사");
+  const copyAgain = createEl("button", "primary-button", embeddedInChatGpt ? "2차 학습 요청 다시 보내기" : "2차 학습 프롬프트 다시 복사");
   copyAgain.type = "button";
   copyAgain.dataset.action = "copy-axis-detail-prompt";
   copyAgain.dataset.axisId = selectedAxis.id;
@@ -1650,7 +1666,20 @@ export async function copyTextToClipboard(text) {
 export async function handleCopyPrompt() {
   if (!state.result) return;
   const text = state.result.fullChatGptPrompt;
-  const outcome = await copyTextToClipboard(text);
+  let outcome;
+  if (typeof window?.historyLensSendFirstStage === "function") {
+    try {
+      await window.historyLensSendFirstStage({
+        prompt: text,
+        resultSnapshot: state.result,
+      });
+      outcome = { ok: true, message: "1차 분석을 ChatGPT로 보냈습니다. 분석이 끝나면 세 개의 쟁점이 새 패널에 표시됩니다." };
+    } catch {
+      outcome = { ok: false, message: "1차 분석 요청을 보내지 못했습니다. 아래 내용을 직접 복사해주세요." };
+    }
+  } else {
+    outcome = await copyTextToClipboard(text);
+  }
   state.manualChatGpt = { ...state.manualChatGpt, copyStatus: outcome.message };
   renderApp();
   if (!outcome.ok) {
@@ -1673,7 +1702,9 @@ export async function handleCopyAxisDetailPrompt(axisId) {
   state.axisDetail = {
     selectedAxisId: axis.id,
     copyStatus: outcome.ok
-      ? "선택한 쟁점의 2차 학습 프롬프트를 복사했습니다. 사용 중인 AI 채팅에 붙여 넣어 이어서 읽어주세요."
+      ? typeof window?.historyLensSendToChat === "function"
+        ? "선택한 쟁점의 2차 학습 요청을 ChatGPT 대화로 보냈습니다."
+        : "선택한 쟁점의 2차 학습 프롬프트를 복사했습니다. 사용 중인 AI 채팅에 붙여 넣어 이어서 읽어주세요."
       : outcome.message,
     promptCopied: outcome.ok,
   };
@@ -1689,6 +1720,34 @@ export async function handleCopyAxisDetailPrompt(axisId) {
       fallback.select();
     }
   }
+}
+
+export function applyChatGptToolResult(payload) {
+  if (payload?.status !== "axes-ready" || !payload?.resultSnapshot || !payload?.analysis) return false;
+  state.result = {
+    ...payload.resultSnapshot,
+    aiResponse: payload.analysis,
+    aiStatus: getAiResultStatus(payload.analysis),
+  };
+  state.aiState = {
+    status: "success",
+    source: "chatgpt-app",
+    input: state.result.aiInput || null,
+    response: payload.analysis,
+    error: null,
+    isMock: false,
+    isStale: false,
+  };
+  state.manualChatGpt = {
+    responseText: "",
+    copyStatus: "1차 분석이 완료되었습니다. 아래 세 쟁점 중 하나를 선택하세요.",
+    error: "",
+    selectedAxisId: "",
+  };
+  state.axisDetail = createInitialAxisDetailState();
+  state.isResultStale = false;
+  renderApp();
+  return true;
 }
 
 export async function handleCopyAxisKeywords(axisId) {
@@ -2027,6 +2086,12 @@ if (typeof document !== "undefined") {
     appRoot.addEventListener("click", handleRootEvent);
     appRoot.addEventListener("change", handleRootEvent);
     appRoot.addEventListener("input", handleInputEvent);
+    window.addEventListener("history-lens-tool-result", (event) => {
+      applyChatGptToolResult(event.detail);
+    });
     renderApp();
+    if (window.historyLensLatestToolResult) {
+      applyChatGptToolResult(window.historyLensLatestToolResult);
+    }
   }
 }
