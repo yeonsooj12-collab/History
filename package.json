@@ -1,6 +1,6 @@
 {
   "name": "history-lens-chatgpt-app",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "private": true,
   "type": "module",
   "description": "세계사 조건 렌즈 ChatGPT App and MCP server",

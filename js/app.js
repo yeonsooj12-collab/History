@@ -1041,7 +1041,8 @@ export function renderTagPreview(key, text) {
 
 function renderActions() {
   const wrap = createEl("div", "action-row");
-  const evaluate = createEl("button", "primary-button", "1. 요청 만들기");
+  const embeddedInChatGpt = typeof window?.historyLensSendFirstStage === "function";
+  const evaluate = createEl("button", "primary-button", embeddedInChatGpt ? "요청 보내기" : "1. 요청 만들기");
   evaluate.type = "button";
   evaluate.dataset.action = "evaluate";
   const reset = createEl("button", "secondary-button", "입력 초기화");
@@ -1056,7 +1057,15 @@ function renderResultPanel() {
   panel.setAttribute("aria-label", "결과");
   panel.setAttribute("aria-live", "polite");
   if (!state.result) {
-    panel.append(createEl("p", "help-text", "조건을 적고 `1. 요청 만들기`를 누르세요."));
+    panel.append(
+      createEl(
+        "p",
+        "help-text",
+        typeof window?.historyLensSendFirstStage === "function"
+          ? "조건을 적고 `요청 보내기`를 누르면 ChatGPT로 바로 전송됩니다."
+          : "조건을 적고 `1. 요청 만들기`를 누르세요.",
+      ),
+    );
     if (state.validation) panel.append(renderValidation(state.validation));
     return panel;
   }
@@ -1960,7 +1969,14 @@ export async function handleEvaluate() {
   };
   state.isResultStale = false;
   renderApp();
-  if (promptMode === "manual") return;
+  if (promptMode === "manual") {
+    // ChatGPT 임베드에서는 요청 생성과 전송을 한 번에 처리한다. 별도의
+    // "1차 분석 요청 보내기" 단계 없이 바로 보내고 전체 화면을 닫는다.
+    if (typeof window?.historyLensSendFirstStage === "function" && state.result) {
+      await handleCopyPrompt();
+    }
+    return;
+  }
   try {
     const useMock = promptMode === "mock";
     const aiResponse = await requestAiInterpretation(state.result.aiInput, { useMock });
