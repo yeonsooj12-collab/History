@@ -279,7 +279,22 @@ const state = {
   result: null,
   validation: null,
   isResultStale: false,
+  // ChatGPT 패널 대기 상태: "idle" | "awaiting-axes" | "detail-sent"
+  embeddedStage: "idle",
 };
+
+/**
+ * ChatGPT 임베드에서 전체 화면을 닫고 인라인 카드로 돌아간다.
+ * 요청을 보낸 뒤 대화 흐름(모델 응답)이 보이도록 하기 위함이다.
+ */
+function exitFullscreenToInline() {
+  if (
+    typeof window?.historyLensRequestDisplayMode === "function" &&
+    window.historyLensDisplayMode === "fullscreen"
+  ) {
+    void window.historyLensRequestDisplayMode("inline").catch(() => undefined);
+  }
+}
 
 let appRoot = null;
 
@@ -642,21 +657,49 @@ export function renderApp() {
   appRoot.replaceChildren(...content);
 }
 
+function getEmbeddedLauncherCopy() {
+  const hasAxes = state.result?.aiResponse?.interpretationMode === "axis-finder";
+  if (state.embeddedStage === "awaiting-axes" && !hasAxes) {
+    return {
+      badge: "분석 진행 중",
+      title: "ChatGPT가 1차 분석 중입니다",
+      body: "분석이 끝나면 이 카드가 갱신되고 세 개의 비교 쟁점이 준비됩니다. 잠시만 기다려주세요.",
+      button: "조건 다시 열기",
+    };
+  }
+  if (state.embeddedStage === "detail-sent") {
+    return {
+      badge: "2차 요청 전송됨",
+      title: "아래 ChatGPT 답변에서 결과를 확인하세요",
+      body: "선택한 쟁점의 2차 학습 답변이 이 패널 아래 대화에 이어집니다. 다른 쟁점도 살펴보려면 패널을 다시 여세요.",
+      button: "쟁점 다시 보기",
+    };
+  }
+  if (hasAxes) {
+    return {
+      badge: "분석 완료",
+      title: "비교 쟁점 3개가 준비되었습니다",
+      body: "전체 화면을 열어 세 개의 역사 쟁점을 비교하고 하나를 선택하세요.",
+      button: "3개 쟁점 확인하기",
+    };
+  }
+  return {
+    badge: "11개 조건",
+    title: "세계사 비교 조건을 선택하세요",
+    body: "시대·지역과 1~9번 조건을 전체 화면에서 고른 뒤 ChatGPT로 1차 분석을 보냅니다.",
+    button: "전체 화면에서 조건 선택",
+  };
+}
+
 function renderEmbeddedLauncher() {
   const launcher = createEl("section", "embedded-launcher");
-  const hasAxes = state.result?.aiResponse?.interpretationMode === "axis-finder";
+  const copy = getEmbeddedLauncherCopy();
   launcher.append(
-    createEl("span", "ai-status-badge ai-status-badge--brief", hasAxes ? "분석 완료" : "11개 조건"),
-    createEl("h2", "", hasAxes ? "비교 쟁점 3개가 준비되었습니다" : "세계사 비교 조건을 선택하세요"),
-    createEl(
-      "p",
-      "",
-      hasAxes
-        ? "전체 화면을 열어 세 개의 역사 쟁점을 비교하고 하나를 선택하세요."
-        : "시대·지역과 1~9번 조건을 전체 화면에서 고른 뒤 ChatGPT로 1차 분석을 보냅니다.",
-    ),
+    createEl("span", "ai-status-badge ai-status-badge--brief", copy.badge),
+    createEl("h2", "", copy.title),
+    createEl("p", "", copy.body),
   );
-  const fullscreen = createEl("button", "primary-button embedded-launcher-button", hasAxes ? "3개 쟁점 확인하기" : "전체 화면에서 조건 선택");
+  const fullscreen = createEl("button", "primary-button embedded-launcher-button", copy.button);
   fullscreen.type = "button";
   fullscreen.dataset.action = "request-fullscreen";
   launcher.append(fullscreen);
@@ -1728,6 +1771,9 @@ export async function handleCopyPrompt() {
         resultSnapshot: state.result,
       });
       outcome = { ok: true, message: "1차 분석을 ChatGPT로 보냈습니다. 분석이 끝나면 세 개의 쟁점이 새 패널에 표시됩니다." };
+      // 전송 직후 전체 화면을 닫아 ChatGPT가 분석하는 과정을 보면서 기다리게 한다.
+      state.embeddedStage = "awaiting-axes";
+      exitFullscreenToInline();
     } catch {
       outcome = { ok: false, message: "1차 분석 요청을 보내지 못했습니다. 아래 내용을 직접 복사해주세요." };
     }
@@ -1753,15 +1799,21 @@ export async function handleCopyAxisDetailPrompt(axisId) {
   const text = buildAxisDetailPrompt({ editorialBrief: state.result.editorialBrief, axis });
   const outcome = await copyTextToClipboard(text);
   state.manualChatGpt = { ...state.manualChatGpt, selectedAxisId: axis.id };
+  const sentViaChatGpt = outcome.ok && typeof window?.historyLensSendToChat === "function";
   state.axisDetail = {
     selectedAxisId: axis.id,
     copyStatus: outcome.ok
-      ? typeof window?.historyLensSendToChat === "function"
+      ? sentViaChatGpt
         ? "선택한 쟁점의 2차 학습 요청을 ChatGPT 대화로 보냈습니다."
         : "선택한 쟁점의 2차 학습 프롬프트를 복사했습니다. 사용 중인 AI 채팅에 붙여 넣어 이어서 읽어주세요."
       : outcome.message,
     promptCopied: outcome.ok,
   };
+  if (sentViaChatGpt) {
+    // 전송 직후 전체 화면을 닫아 2차 학습 답변이 대화에서 바로 보이게 한다.
+    state.embeddedStage = "detail-sent";
+    exitFullscreenToInline();
+  }
   renderApp();
   if (!outcome.ok) {
     const fallback =
@@ -1800,6 +1852,8 @@ export function applyChatGptToolResult(payload) {
   };
   state.axisDetail = createInitialAxisDetailState();
   state.isResultStale = false;
+  // 1차 분석 결과가 도착했으므로 대기 상태를 해제해 "쟁점 준비 완료" 카드를 보여준다.
+  state.embeddedStage = "idle";
   renderApp();
   return true;
 }
@@ -1949,6 +2003,7 @@ export function handleReset() {
   state.result = null;
   state.validation = null;
   state.isResultStale = false;
+  state.embeddedStage = "idle";
   renderApp();
 }
 

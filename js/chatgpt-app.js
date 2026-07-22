@@ -4,7 +4,7 @@ const isEmbedded = typeof window !== "undefined" && window.parent !== window;
 
 function createApp() {
   return new App(
-    { name: "history-lens", version: "0.5.2" },
+    { name: "history-lens", version: "0.5.3" },
     { availableDisplayModes: ["inline", "fullscreen"] },
     { autoResize: true },
   );
