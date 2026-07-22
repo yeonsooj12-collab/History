@@ -4,7 +4,7 @@ const isEmbedded = typeof window !== "undefined" && window.parent !== window;
 
 function createApp() {
   return new App(
-    { name: "history-lens", version: "0.4.0" },
+    { name: "history-lens", version: "0.4.1" },
     { availableDisplayModes: ["inline", "fullscreen"] },
     { autoResize: true },
   );
@@ -13,6 +13,9 @@ function createApp() {
 export function installChatGptAppBridge() {
   if (!isEmbedded) return;
 
+  // Mark the document before the first render/resize measurement so the
+  // embedded layout does not reserve space for the standalone landing page.
+  document.documentElement.dataset.chatgptApp = "true";
   const app = createApp();
   const publishToolResult = (params) => {
     const value = params?.structuredContent;
@@ -22,7 +25,6 @@ export function installChatGptAppBridge() {
   };
   app.ontoolresult = publishToolResult;
   const ready = app.connect().then(() => {
-    document.documentElement.dataset.chatgptApp = "true";
     return app;
   });
 
