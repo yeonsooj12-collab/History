@@ -10,7 +10,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
 
-const widgetUri = "ui://widget/history-lens.html";
+const widgetUri = "ui://widget/history-lens-v0.5.1.html";
 const widgetHtml = readFileSync("public/history-lens-widget.html", "utf8");
 const configuredDomain = process.env.APP_DOMAIN ?? process.env.RENDER_EXTERNAL_URL;
 const appDomain = configuredDomain
@@ -66,7 +66,7 @@ function pruneExpiredRequests() {
 
 function createHistoryLensServer() {
   const server = new McpServer(
-    { name: "history-lens", version: "0.5.0" },
+    { name: "history-lens", version: "0.5.1" },
     {
       instructions:
         "세계사 조건 렌즈는 사용자의 사회 조건을 서로 다른 세계사 비교 쟁점 3개로 나눕니다. 사용자가 렌즈, 비교 쟁점, 역사 패널을 요청하면 open_history_lens를 호출해 패널을 여세요. 패널이 requestId와 함께 1차 분석을 요청하면 반드시 정확히 3개의 축을 만든 뒤 show_history_lens_axes를 호출해 결과를 패널로 돌려보내세요.",
