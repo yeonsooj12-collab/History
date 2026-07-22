@@ -32,8 +32,6 @@ import {
 } from "./prompt.js";
 import { installChatGptAppBridge } from "./chatgpt-app.js";
 
-installChatGptAppBridge();
-
 export {
   buildAiInput,
   buildHistoryLensInput,
@@ -2111,6 +2109,11 @@ if (typeof document !== "undefined") {
     window.addEventListener("history-lens-tool-result", (event) => {
       applyChatGptToolResult(event.detail);
     });
+    // Render real content before connecting the MCP Apps auto-resizer. If the
+    // bridge connects while the root is empty, ChatGPT can permanently
+    // collapse the iframe to an empty strip.
+    renderApp();
+    installChatGptAppBridge();
     renderApp();
     if (window.historyLensLatestToolResult) {
       applyChatGptToolResult(window.historyLensLatestToolResult);
