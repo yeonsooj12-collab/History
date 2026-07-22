@@ -1,0 +1,27 @@
+{
+  "name": "history",
+  "version": "0.1.1",
+  "description": "사용자의 사회 조건을 세계사의 사건, 제도, 생활상, 사상, 예술, 종교, 관습과 비교할 쟁점으로 나누는 학습 플러그인",
+  "author": {
+    "name": "yeonsooj12-collab",
+    "url": "https://github.com/yeonsooj12-collab"
+  },
+  "homepage": "https://github.com/yeonsooj12-collab/History",
+  "repository": "https://github.com/yeonsooj12-collab/History",
+  "keywords": ["history", "world-history", "comparative-history", "learning"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "세계사 조건 렌즈",
+    "shortDescription": "사회 조건을 세계사의 비교 쟁점으로 나눠 읽습니다.",
+    "longDescription": "사용자가 제시한 사회 압력, 외부 조건, 행위자, 대상 집단, 분류 기준과 제도 변화를 서로 다른 세계사 비교 쟁점 3개로 분리하고, 선택한 쟁점을 역사적 맥락과 차이까지 포함해 깊게 설명합니다.",
+    "developerName": "yeonsooj12-collab",
+    "category": "Education",
+    "capabilities": ["Analyze", "Research", "Write"],
+    "websiteURL": "https://github.com/yeonsooj12-collab/History",
+    "defaultPrompt": [
+      "내 아이디어를 비교 가능한 세계사 쟁점 3개로 나눠줘.",
+      "이 사회 조건과 비교할 역사적 사례를 찾아줘.",
+      "선택한 쟁점을 세계사 맥락에서 깊게 설명해줘."
+    ]
+  }
+}

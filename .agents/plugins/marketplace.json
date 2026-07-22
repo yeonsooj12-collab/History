@@ -1,0 +1,20 @@
+{
+  "name": "history-lens",
+  "interface": {
+    "displayName": "History Lens"
+  },
+  "plugins": [
+    {
+      "name": "history",
+      "source": {
+        "source": "local",
+        "path": "./plugins/history"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Education"
+    }
+  ]
+}

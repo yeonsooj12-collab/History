@@ -14,6 +14,15 @@
 
 기본 응답은 사람이 읽기 쉬운 형식이며, `웹앱에 넣을 JSON으로 줘`라고 요청하면 기존 웹앱과 호환되는 `axis-finder` JSON을 출력합니다.
 
+### GitHub 마켓플레이스로 설치
+
+이 저장소는 `.agents/plugins/marketplace.json`을 포함합니다. Codex에서 저장소를 마켓플레이스로 추가한 뒤 `history` 플러그인을 설치할 수 있습니다.
+
+```text
+codex plugin marketplace add yeonsooj12-collab/History
+codex plugin add history@history-lens
+```
+
 ## 어떤 도구인가
 
 이 도구는 어떤 역사 장면을 다른 장면과 같다고 단정하지 않습니다. 사용자가 고른 조건을 바탕으로 인간사가 반복해온 명분, 분류, 동원, 배제, 생활 전략, 문화 표현, 저항과 균열의 패턴을 조심스럽게 비교하도록 돕습니다.
