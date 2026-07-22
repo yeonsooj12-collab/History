@@ -4,7 +4,7 @@ const isEmbedded = typeof window !== "undefined" && window.parent !== window;
 
 function createApp() {
   return new App(
-    { name: "history-lens", version: "0.4.1" },
+    { name: "history-lens", version: "0.5.0" },
     { availableDisplayModes: ["inline", "fullscreen"] },
     { autoResize: true },
   );
@@ -16,7 +16,13 @@ export function installChatGptAppBridge() {
   // Mark the document before the first render/resize measurement so the
   // embedded layout does not reserve space for the standalone landing page.
   document.documentElement.dataset.chatgptApp = "true";
+  window.historyLensDisplayMode = "inline";
   const app = createApp();
+  const publishDisplayMode = (mode = "inline") => {
+    window.historyLensDisplayMode = mode;
+    document.documentElement.dataset.chatgptDisplayMode = mode;
+    window.dispatchEvent(new CustomEvent("history-lens-display-mode", { detail: { mode } }));
+  };
   const publishToolResult = (params) => {
     const value = params?.structuredContent;
     if (!value) return;
@@ -24,7 +30,11 @@ export function installChatGptAppBridge() {
     window.dispatchEvent(new CustomEvent("history-lens-tool-result", { detail: value }));
   };
   app.ontoolresult = publishToolResult;
+  app.onhostcontextchanged = (context) => {
+    publishDisplayMode(context?.displayMode || app.getHostContext()?.displayMode || "inline");
+  };
   const ready = app.connect().then(() => {
+    publishDisplayMode(app.getHostContext()?.displayMode || "inline");
     return app;
   });
 
@@ -74,10 +84,13 @@ export function installChatGptAppBridge() {
     await connectedApp.sendMessage({ role: "user", content });
   };
 
-  window.historyLensRequestFullscreen = async () => {
+  window.historyLensRequestDisplayMode = async (mode) => {
     const connectedApp = await ready;
-    return connectedApp.requestDisplayMode({ mode: "fullscreen" });
+    const result = await connectedApp.requestDisplayMode({ mode });
+    publishDisplayMode(result?.mode || mode);
+    return result;
   };
+  window.historyLensRequestFullscreen = () => window.historyLensRequestDisplayMode("fullscreen");
 
   ready.catch((error) => {
     console.error("ChatGPT app bridge initialization failed", error);

@@ -172,6 +172,32 @@ button {
   display: none;
 }
 
+.embedded-launcher {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 20px;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+
+.embedded-launcher h2,
+.embedded-launcher p {
+  margin: 0;
+}
+
+.embedded-launcher .ai-status-badge {
+  justify-self: center;
+}
+
+.embedded-launcher-button {
+  width: min(100%, 360px);
+  justify-self: center;
+  margin-top: 4px;
+}
+
 html[data-chatgpt-app="true"] .site-header,
 html[data-chatgpt-app="true"] .step-guide,
 html[data-chatgpt-app="true"] .onboarding-panel {
@@ -189,6 +215,17 @@ html[data-chatgpt-app="true"] main.page-shell {
 html[data-chatgpt-app="true"] .app-root {
   gap: 12px;
   padding: 12px;
+}
+
+html[data-chatgpt-display-mode="fullscreen"] .action-row {
+  position: sticky;
+  z-index: 9;
+  bottom: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.96);
+  padding: 12px;
+  box-shadow: 0 -8px 24px rgba(23, 32, 38, 0.1);
 }
 
 html[data-chatgpt-app="true"] .embedded-toolbar {
@@ -214,11 +251,6 @@ html[data-chatgpt-app="true"] .embedded-toolbar {
 .embedded-toolbar-copy span {
   color: var(--muted);
   font-size: 0.82rem;
-}
-
-.embedded-fullscreen-button {
-  flex: 0 0 auto;
-  min-height: 40px;
 }
 
 .onboarding-panel {

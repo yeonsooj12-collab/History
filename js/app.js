@@ -32,8 +32,6 @@ import {
 } from "./prompt.js";
 import { installChatGptAppBridge } from "./chatgpt-app.js";
 
-installChatGptAppBridge();
-
 export {
   buildAiInput,
   buildHistoryLensInput,
@@ -618,6 +616,17 @@ function getCategoryState(key) {
 
 export function renderApp() {
   if (!appRoot) return;
+  const embeddedInChatGpt = typeof window?.historyLensRequestFullscreen === "function";
+  const displayMode = embeddedInChatGpt ? window.historyLensDisplayMode || "inline" : "standalone";
+  if (embeddedInChatGpt && displayMode !== "fullscreen") {
+    appRoot.replaceChildren(renderEmbeddedLauncher());
+    return;
+  }
+  const hasAxes = state.result?.aiResponse?.interpretationMode === "axis-finder";
+  if (embeddedInChatGpt && displayMode === "fullscreen" && hasAxes) {
+    appRoot.replaceChildren(renderEmbeddedToolbar(), renderResultPanel());
+    return;
+  }
   const content = [
     renderOnboarding(),
     renderSection("scope"),
@@ -627,24 +636,51 @@ export function renderApp() {
     renderActions(),
     renderResultPanel(),
   ];
-  if (typeof window?.historyLensRequestFullscreen === "function") {
+  if (embeddedInChatGpt) {
     content.unshift(renderEmbeddedToolbar());
   }
   appRoot.replaceChildren(...content);
 }
 
+function renderEmbeddedLauncher() {
+  const launcher = createEl("section", "embedded-launcher");
+  const hasAxes = state.result?.aiResponse?.interpretationMode === "axis-finder";
+  launcher.append(
+    createEl("span", "ai-status-badge ai-status-badge--brief", hasAxes ? "분석 완료" : "11개 조건"),
+    createEl("h2", "", hasAxes ? "비교 쟁점 3개가 준비되었습니다" : "세계사 비교 조건을 선택하세요"),
+    createEl(
+      "p",
+      "",
+      hasAxes
+        ? "전체 화면을 열어 세 개의 역사 쟁점을 비교하고 하나를 선택하세요."
+        : "시대·지역과 1~9번 조건을 전체 화면에서 고른 뒤 ChatGPT로 1차 분석을 보냅니다.",
+    ),
+  );
+  const fullscreen = createEl("button", "primary-button embedded-launcher-button", hasAxes ? "3개 쟁점 확인하기" : "전체 화면에서 조건 선택");
+  fullscreen.type = "button";
+  fullscreen.dataset.action = "request-fullscreen";
+  launcher.append(fullscreen);
+  return launcher;
+}
+
 function renderEmbeddedToolbar() {
   const toolbar = createEl("section", "embedded-toolbar");
   const copy = createEl("div", "embedded-toolbar-copy");
-  copy.append(
-    createEl("strong", "", "세계사 조건 렌즈"),
-    createEl("span", "", "조건을 고른 뒤 ChatGPT에서 3개의 역사 쟁점을 찾습니다."),
-  );
-  const fullscreen = createEl("button", "primary-button embedded-fullscreen-button", "전체 화면에서 조건 선택");
-  fullscreen.type = "button";
-  fullscreen.dataset.action = "request-fullscreen";
-  toolbar.append(copy, fullscreen);
+  const hasAxes = state.result?.aiResponse?.interpretationMode === "axis-finder";
+  const progress = createEl("span", "", hasAxes ? "1차 분석 완료 · 아래 3개 쟁점 중 하나를 선택" : getEmbeddedProgressText());
+  progress.dataset.role = "embedded-progress";
+  copy.append(createEl("strong", "", "세계사 조건 렌즈"), progress);
+  toolbar.append(copy);
   return toolbar;
+}
+
+function getEmbeddedProgressText() {
+  return `현재 ${countCompletedInputs(state.formState)}/${CATEGORY_META.length}개 조건 입력 · 시대·지역 + 1~9`;
+}
+
+function updateEmbeddedProgress() {
+  const progress = appRoot?.querySelector("[data-role='embedded-progress']");
+  if (progress) progress.textContent = getEmbeddedProgressText();
 }
 
 function renderFlowArrow() {
@@ -2011,6 +2047,7 @@ function handleRootEvent(event) {
     state.formState = setInputMode(state.formState, key, mode);
     markResultStale();
     replaceInputCard(key);
+    updateEmbeddedProgress();
     updateStaleNotice();
     return;
   }
@@ -2025,6 +2062,7 @@ function handleRootEvent(event) {
     state.formState = removePresetOptionFromFormState(state.formState, key, optionId);
     markResultStale();
     replaceInputCard(key);
+    updateEmbeddedProgress();
     updateStaleNotice();
     return;
   }
@@ -2082,6 +2120,7 @@ function handleRootEvent(event) {
       : updateFormField(state.formState, key, field, "");
     markResultStale();
     replaceInputCard(key);
+    updateEmbeddedProgress();
     updateStaleNotice();
   }
 }
@@ -2099,6 +2138,7 @@ function handleInputEvent(event) {
   state.formState = updateFormField(state.formState, key, field, target.value);
   markResultStale();
   updateCustomTagPreview(key);
+  updateEmbeddedProgress();
   updateStaleNotice();
 }
 
@@ -2108,9 +2148,15 @@ if (typeof document !== "undefined") {
     appRoot.addEventListener("click", handleRootEvent);
     appRoot.addEventListener("change", handleRootEvent);
     appRoot.addEventListener("input", handleInputEvent);
+    window.addEventListener("history-lens-display-mode", renderApp);
     window.addEventListener("history-lens-tool-result", (event) => {
       applyChatGptToolResult(event.detail);
     });
+    // Render real content before connecting the MCP Apps auto-resizer. If the
+    // bridge connects while the root is empty, ChatGPT can permanently
+    // collapse the iframe to an empty strip.
+    renderApp();
+    installChatGptAppBridge();
     renderApp();
     if (window.historyLensLatestToolResult) {
       applyChatGptToolResult(window.historyLensLatestToolResult);
