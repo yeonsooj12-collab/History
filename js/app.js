@@ -618,7 +618,7 @@ function getCategoryState(key) {
 
 export function renderApp() {
   if (!appRoot) return;
-  appRoot.replaceChildren(
+  const content = [
     renderOnboarding(),
     renderSection("scope"),
     renderSection("core"),
@@ -626,7 +626,25 @@ export function renderApp() {
     renderSection("amplifier"),
     renderActions(),
     renderResultPanel(),
+  ];
+  if (typeof window?.historyLensRequestFullscreen === "function") {
+    content.unshift(renderEmbeddedToolbar());
+  }
+  appRoot.replaceChildren(...content);
+}
+
+function renderEmbeddedToolbar() {
+  const toolbar = createEl("section", "embedded-toolbar");
+  const copy = createEl("div", "embedded-toolbar-copy");
+  copy.append(
+    createEl("strong", "", "세계사 조건 렌즈"),
+    createEl("span", "", "조건을 고른 뒤 ChatGPT에서 3개의 역사 쟁점을 찾습니다."),
   );
+  const fullscreen = createEl("button", "primary-button embedded-fullscreen-button", "전체 화면에서 조건 선택");
+  fullscreen.type = "button";
+  fullscreen.dataset.action = "request-fullscreen";
+  toolbar.append(copy, fullscreen);
+  return toolbar;
 }
 
 function renderFlowArrow() {
@@ -2019,6 +2037,10 @@ function handleRootEvent(event) {
   }
   if (action === "toggle-structure-info" || action === "toggle-result-details") {
     toggleStructureInfo();
+    return;
+  }
+  if (action === "request-fullscreen") {
+    void window.historyLensRequestFullscreen?.();
     return;
   }
   if (action === "copy-full-prompt") {

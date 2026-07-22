@@ -168,6 +168,59 @@ button {
   padding-bottom: 48px;
 }
 
+.embedded-toolbar {
+  display: none;
+}
+
+html[data-chatgpt-app="true"] .site-header,
+html[data-chatgpt-app="true"] .step-guide,
+html[data-chatgpt-app="true"] .onboarding-panel {
+  display: none;
+}
+
+html[data-chatgpt-app="true"] body {
+  overflow-y: auto;
+}
+
+html[data-chatgpt-app="true"] main.page-shell {
+  width: 100%;
+}
+
+html[data-chatgpt-app="true"] .app-root {
+  gap: 12px;
+  padding: 12px;
+}
+
+html[data-chatgpt-app="true"] .embedded-toolbar {
+  display: flex;
+  position: sticky;
+  z-index: 10;
+  top: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  padding: 10px 12px;
+  box-shadow: 0 8px 20px rgba(23, 32, 38, 0.08);
+}
+
+.embedded-toolbar-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.embedded-toolbar-copy span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.embedded-fullscreen-button {
+  flex: 0 0 auto;
+  min-height: 40px;
+}
+
 .onboarding-panel {
   display: grid;
   gap: 12px;
@@ -1903,5 +1956,10 @@ button:focus-visible {
 
   .summary-item {
     grid-template-columns: 1fr;
+  }
+
+  html[data-chatgpt-app="true"] .embedded-toolbar {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
