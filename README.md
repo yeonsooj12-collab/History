@@ -4,7 +4,7 @@
 
 ## ChatGPT 패널 앱
 
-이 저장소는 기존 정적 웹앱을 대화 안의 인터랙티브 패널로 띄우는 ChatGPT App용 MCP 서버를 포함합니다. 일반 웹에서는 기존 복사·붙여넣기 흐름을 유지하고, ChatGPT 패널에서는 생성한 요청을 대화로 바로 전송합니다.
+이 저장소는 기존 정적 웹앱을 대화 안의 인터랙티브 패널로 띄우는 ChatGPT App용 MCP 서버를 포함합니다. 일반 웹에서는 기존 복사·붙여넣기 흐름을 유지하고, ChatGPT 패널에서는 생성한 요청을 대화로 바로 전송합니다. `지침`에 웹 파일을 붙이는 방식이 아니라, MCP 서버가 기존 HTML/CSS/JavaScript를 ChatGPT용 위젯으로 제공합니다.
 
 ```bash
 npm install
@@ -13,7 +13,9 @@ npm start
 
 서버는 기본적으로 `http://localhost:8787/mcp`에서 실행됩니다. ChatGPT 개발자 모드에서 연결하려면 이 주소를 ngrok 같은 HTTPS 터널 또는 배포 서비스로 공개한 뒤 `https://<주소>/mcp`를 등록합니다.
 
-`Dockerfile`과 `render.yaml`도 포함되어 있어 Node 웹 서비스를 지원하는 배포 환경에서 그대로 실행할 수 있습니다. 배포 환경은 반드시 `PORT` 환경변수를 서버에 전달하고 공개 HTTPS를 제공해야 합니다.
+`Dockerfile`과 `render.yaml`도 포함되어 있어 Node 웹 서비스를 지원하는 배포 환경에서 그대로 실행할 수 있습니다. 배포 환경은 반드시 `PORT` 환경변수를 서버에 전달하고 공개 HTTPS를 제공해야 합니다. 공개 심사 전에 배포 서비스의 환경변수 `APP_DOMAIN`을 실제 서비스 원본 주소(예: `https://history-lens-mcp.onrender.com`)로 지정합니다.
+
+배포 후 ChatGPT의 `Settings → Security and login → Developer mode`를 켠 다음, `Settings → Plugins → +`에서 `https://<배포주소>/mcp`를 등록합니다. 개발자 모드에서 동작을 확인한 뒤 플러그인 제출 포털에서 공개 심사를 진행합니다.
 
 이 저장소는 같은 분석 흐름을 대화창에서 바로 사용할 수 있는 Codex 플러그인도 포함합니다. 웹앱은 입력을 조합하고 결과를 시각적으로 검토할 때, 플러그인은 복사·붙여넣기 없이 대화로 탐색할 때 적합합니다.
 

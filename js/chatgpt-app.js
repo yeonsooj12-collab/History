@@ -1,60 +1,46 @@
+import { App } from "@modelcontextprotocol/ext-apps";
+
 const isEmbedded = typeof window !== "undefined" && window.parent !== window;
 
-let nextRpcId = 0;
-const pendingRequests = new Map();
-
-function post(message) {
-  window.parent.postMessage(message, "*");
-}
-
-function rpcNotify(method, params = {}) {
-  post({ jsonrpc: "2.0", method, params });
-}
-
-function rpcRequest(method, params = {}) {
-  return new Promise((resolve, reject) => {
-    const id = ++nextRpcId;
-    pendingRequests.set(id, { resolve, reject });
-    post({ jsonrpc: "2.0", id, method, params });
-  });
-}
-
-function handleHostMessage(event) {
-  if (event.source !== window.parent) return;
-  const message = event.data;
-  if (!message || message.jsonrpc !== "2.0") return;
-  if (typeof message.id !== "number") return;
-  const pending = pendingRequests.get(message.id);
-  if (!pending) return;
-  pendingRequests.delete(message.id);
-  if (message.error) pending.reject(message.error);
-  else pending.resolve(message.result);
-}
-
-async function initialize() {
-  window.addEventListener("message", handleHostMessage, { passive: true });
-  await rpcRequest("ui/initialize", {
-    appInfo: { name: "history-lens", version: "0.2.0" },
-    appCapabilities: {},
-    protocolVersion: "2026-01-26",
-  });
-  rpcNotify("ui/notifications/initialized", {});
+function createApp() {
+  return new App(
+    { name: "history-lens", version: "0.3.0" },
+    { availableDisplayModes: ["inline", "fullscreen"] },
+    { autoResize: true },
+  );
 }
 
 export function installChatGptAppBridge() {
   if (!isEmbedded) return;
-  const ready = initialize().catch((error) => {
-    console.error("ChatGPT app bridge initialization failed", error);
-    throw error;
+
+  const app = createApp();
+  const ready = app.connect().then(() => {
+    document.documentElement.dataset.chatgptApp = "true";
+    return app;
   });
 
   window.historyLensSendToChat = async (text) => {
-    await ready;
-    rpcNotify("ui/message", {
-      role: "user",
-      content: [{ type: "text", text }],
-    });
+    const connectedApp = await ready;
+    const content = [{ type: "text", text }];
+
+    // Keep the user's current lens request available to the model on later turns,
+    // then create a normal user turn in the surrounding ChatGPT conversation.
+    await connectedApp.updateModelContext({
+      content,
+      structuredContent: {
+        app: "history-lens",
+        action: "analyze-history-lens-request",
+      },
+    }).catch(() => undefined);
+    await connectedApp.sendMessage({ role: "user", content });
   };
 
-  document.documentElement.dataset.chatgptApp = "true";
+  window.historyLensRequestFullscreen = async () => {
+    const connectedApp = await ready;
+    return connectedApp.requestDisplayMode({ mode: "fullscreen" });
+  };
+
+  ready.catch((error) => {
+    console.error("ChatGPT app bridge initialization failed", error);
+  });
 }

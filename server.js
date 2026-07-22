@@ -11,10 +11,14 @@ import { z } from "zod";
 
 const widgetUri = "ui://widget/history-lens.html";
 const widgetHtml = readFileSync("public/history-lens-widget.html", "utf8");
+const configuredDomain = process.env.APP_DOMAIN ?? process.env.RENDER_EXTERNAL_URL;
+const appDomain = configuredDomain
+  ? new URL(configuredDomain).origin
+  : undefined;
 
 function createHistoryLensServer() {
   const server = new McpServer(
-    { name: "history-lens", version: "0.2.0" },
+    { name: "history-lens", version: "0.3.0" },
     {
       instructions:
         "세계사 조건 렌즈는 사용자의 사회 조건을 서로 다른 세계사 비교 쟁점 3개로 나눕니다. 사용자가 렌즈, 비교 쟁점, 역사 패널을 요청하면 open_history_lens를 호출해 패널을 여세요.",
@@ -33,6 +37,13 @@ function createHistoryLensServer() {
           mimeType: RESOURCE_MIME_TYPE,
           text: widgetHtml,
           _meta: {
+            ui: {
+              csp: {
+                connectDomains: [],
+                resourceDomains: [],
+              },
+              ...(appDomain ? { domain: appDomain } : {}),
+            },
             "openai/widgetDescription": "사회 조건을 선택해 세계사 비교 요청을 만드는 인터랙티브 패널",
             "openai/widgetPrefersBorder": true,
           },
@@ -60,6 +71,11 @@ function createHistoryLensServer() {
         "openai/outputTemplate": widgetUri,
         "openai/toolInvocation/invoking": "세계사 조건 렌즈를 여는 중",
         "openai/toolInvocation/invoked": "세계사 조건 렌즈를 열었습니다",
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
       },
     },
     async ({ startingPrompt }) => ({
